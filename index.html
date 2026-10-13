@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stundenbuch</title>
+<meta name="description" content="Zeiterfassung nach Projekten: Stempeluhr, Zeiten nachtragen, Tagesverlauf, Auswertung und CSV-Export. Funktioniert offline, Daten bleiben auf dem Gerät.">
+<meta name="theme-color" content="#2448c8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Stundenbuch">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <img src="icons/icon-192.png" alt="" width="36" height="36">
+      <div>
+      <h1>Stundenbuch</h1>
+      <div class="sub" id="today-label">Zeiterfassung nach Projekten</div>
+      </div>
+    </div>
+    <div class="clock-meta"><span id="sync-state">Auf diesem Gerät gespeichert</span><button class="btn" type="button" id="install" hidden>App installieren</button></div>
+  </header>
+
+  <div id="notice" hidden></div>
+
+  <section class="clock" id="clock" aria-label="Stempeluhr">
+    <div class="clock-row">
+      <div class="field grow" style="flex-basis:180px">
+        <label class="label" for="t-project">Projekt</label>
+        <select class="inp" id="t-project"></select>
+      </div>
+      <div class="field grow" style="flex-basis:260px">
+        <label class="label" for="t-note">Was machst du gerade?</label>
+        <input class="inp" id="t-note" placeholder="z. B. Konzept überarbeiten" autocomplete="off">
+      </div>
+    </div>
+    <div class="clock-row" style="align-items:center; justify-content:space-between">
+      <div class="timer-display" id="t-display" aria-live="off">0:00:00</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+        <button class="btn ghost" id="t-manual" type="button">+ Zeit nachtragen</button>
+        <button class="btn stamp" id="t-toggle" type="button"><span class="dot"></span><span id="t-toggle-text">Start</span></button>
+      </div>
+    </div>
+    <div class="clock-meta" id="t-meta" hidden></div>
+  </section>
+
+  <div class="main">
+    <div class="col">
+      <section class="panel" aria-label="Einträge">
+        <div class="period">
+          <div class="seg" role="group" aria-label="Zeitraum">
+            <button type="button" data-kind="day">Tag</button>
+            <button type="button" data-kind="week">Woche</button>
+            <button type="button" data-kind="month">Monat</button>
+          </div>
+          <div class="stepper">
+            <button class="btn" type="button" id="p-prev" aria-label="Zurück">‹</button>
+            <button class="btn" type="button" id="p-now">Heute</button>
+            <button class="btn" type="button" id="p-next" aria-label="Weiter">›</button>
+          </div>
+        </div>
+        <div class="period-label" id="p-label"></div>
+        <div id="days"></div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" aria-label="Auswertung">
+        <div class="panel-head">
+          <h2>Auswertung</h2>
+          <button class="btn" type="button" id="export">CSV exportieren</button>
+        </div>
+        <div class="total">
+          <span class="big" id="s-total">0:00</span>
+          <span class="muted"><span class="num" id="s-dec">0,00</span> h dezimal</span>
+          <span class="muted" id="s-money"></span>
+        </div>
+        <div class="chart-wrap" id="s-chart"></div>
+        <div id="s-projects" style="display:grid; gap:12px"></div>
+      </section>
+
+      <section class="panel" aria-label="Projekte">
+        <div class="panel-head">
+          <h2>Projekte</h2>
+          <button class="btn primary" type="button" id="p-add">+ Projekt</button>
+        </div>
+        <div class="plist" id="plist"></div>
+        <button class="linklike" type="button" id="show-archived" hidden></button>
+      </section>
+      <section class="panel" aria-label="Daten und Backup">
+        <div class="panel-head"><h2>Daten &amp; Backup</h2></div>
+        <p class="muted small" style="margin:0">Deine Zeiten liegen nur in diesem Browser auf diesem Gerät. Sichere sie ab und zu als Backup-Datei. Mit der Datei kannst du sie auch auf ein anderes Gerät mitnehmen.</p>
+        <div class="backup">
+          <button class="btn" type="button" id="backup-export">Backup speichern</button>
+          <button class="btn" type="button" id="backup-import">Backup laden</button>
+          <input type="file" id="backup-file" accept=".json,application/json" hidden>
+        </div>
+        <p class="muted small" id="backup-info" style="margin:0"></p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<dialog id="dlg-entry">
+  <form method="dialog" id="f-entry">
+    <h2 id="fe-title">Zeit nachtragen</h2>
+    <div class="field">
+      <label class="label" for="fe-project">Projekt</label>
+      <select class="inp" id="fe-project" required></select>
+    </div>
+    <div class="field">
+      <label class="label" for="fe-note">Tätigkeit</label>
+      <input class="inp" id="fe-note" autocomplete="off" placeholder="Was hast du gemacht?">
+    </div>
+    <div class="frow">
+      <div class="field">
+        <label class="label" for="fe-date">Datum</label>
+        <input class="inp" type="date" id="fe-date" required>
+      </div>
+      <div class="field">
+        <label class="label" for="fe-from">Von</label>
+        <input class="inp" type="time" id="fe-from" required>
+      </div>
+      <div class="field">
+        <label class="label" for="fe-to">Bis</label>
+        <input class="inp" type="time" id="fe-to" required>
+      </div>
+    </div>
+    <div class="muted" id="fe-dur"></div>
+    <div class="err" id="fe-err"></div>
+    <div class="dlg-actions">
+      <button class="btn danger" type="button" id="fe-delete" hidden>Löschen</button>
+      <span class="spacer"></span>
+      <button class="btn" type="button" data-close>Abbrechen</button>
+      <button class="btn primary" type="submit" id="fe-save">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-project">
+  <form method="dialog" id="f-project">
+    <h2 id="fp-title">Neues Projekt</h2>
+    <div class="field">
+      <label class="label" for="fp-name">Name</label>
+      <input class="inp" id="fp-name" required autocomplete="off" placeholder="z. B. Website Bäckerei Müller">
+    </div>
+    <div class="field">
+      <label class="label" for="fp-rate">Stundensatz in € (optional)</label>
+      <input class="inp" id="fp-rate" inputmode="decimal" autocomplete="off" placeholder="z. B. 65">
+    </div>
+    <div class="field">
+      <span class="label">Farbe</span>
+      <div class="colors" id="fp-colors"></div>
+    </div>
+    <div class="err" id="fp-err"></div>
+    <div class="dlg-actions">
+      <button class="btn" type="button" id="fp-archive" hidden>Archivieren</button>
+      <span class="spacer"></span>
+      <button class="btn" type="button" data-close>Abbrechen</button>
+      <button class="btn primary" type="submit">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-confirm">
+  <form method="dialog">
+    <h2 id="dc-title">Sicher?</h2>
+    <p class="muted" id="dc-text" style="margin:0"></p>
+    <div class="dlg-actions">
+      <button class="btn" type="button" data-close>Abbrechen</button>
+      <button class="btn primary" type="button" id="dc-ok">Ja</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
